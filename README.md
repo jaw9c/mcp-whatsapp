@@ -1,16 +1,11 @@
 # WhatsApp MCP Server
 
-This is a Model Context Protocol (MCP) server for WhatsApp.
+This is a fork of [lharries/whatsapp-mcp](https://github.com/lharries/whatsapp-mcp) to allow for a publically accessible MCP server. You can share your MCP server URL with third party services to allow them to interact with your WhatsApp account.
 
-With this you can search you personal Whatsapp messages, search your contacts and send messages to either individuals or groups.
+With this you and third parties can search you personal Whatsapp messages, search your contacts and send messages to either individuals or groups. 
 
-It connects to your **personal WhatsApp account** directly via the Whatsapp web multidevice API (using the [whatsmeow](https://github.com/tulir/whatsmeow) library). All your messages are stored locally in a SQLite database and only sent to an LLM (such as Claude) when the agent accesses them through tools (which you control).
+It connects to your **personal WhatsApp account** directly via the Whatsapp web multidevice API (using the [whatsmeow](https://github.com/tulir/whatsmeow) library). All your messages are stored locally in a SQLite database and only sent to an LLM (such as Claude) when the agent accesses them through tools (which you control). 
 
-Here's an example of what you can do when it's connected to Claude.
-
-![WhatsApp MCP](./example-use.png)
-
-> To get updates on this and other projects I work on [enter your email here](https://docs.google.com/forms/d/1rTF9wMBTN0vPfzWuQa2BjfGKdKIpTbyeKxhPMcEzgyI/preview)
 
 ## Installation
 
@@ -43,43 +38,21 @@ Here's an example of what you can do when it's connected to Claude.
 
    After approximately 20 days, you will might need to re-authenticate.
 
-3. **Connect to the the MCP server**
+3. **Set up the MCP server**
 
-   Copy the below json with the appropriate {{PATH}} values:
+   Grab an auth token from [ngrok](https://dashboard.ngrok.com/get-started/your-authtoken) and run the MCP server:
 
-   ```json
-   {
-     "mcpServers": {
-       "whatsapp": {
-         "command": "{{PATH}}/.local/bin/uv", // Run `which uv` and place the output here
-         "args": [
-           "--directory",
-           "{{PATH}}/whatsapp-mcp/whatsapp-mcp-server", // cd into the repo, run `pwd` and enter the output here + "/whatsapp-mcp-server"
-           "run",
-           "main.py"
-         ]
-       }
-     }
-   }
+   ```bash
+   cd whatsapp-mcp-server
+   uv run main.py
    ```
+   
+   When prompted, enter your auth token
+   Record the URL that is printed to the console
 
-   For **Claude**, save this as `claude_desktop_config.json` in your Claude Desktop configuration directory at:
+   **VIBE CODE WARNING: DO NOT SHARE THIS URL PUBLICLY**
 
-   ```
-   ~/Library/Application Support/Claude/claude_desktop_config.json
-   ```
 
-   For **Cursor**, save this as `mcp.json` in your Cursor configuration directory at:
-
-   ```
-   ~/.cursor/mcp.json
-   ```
-
-4. **Restart Claude Desktop / Cursor**
-
-   Open Claude Desktop and you should now see WhatsApp as an available integration.
-
-   Or restart Cursor.
 
 ## Architecture Overview
 
@@ -118,8 +91,9 @@ Claude can access the following tools to interact with WhatsApp:
 1. Claude sends requests to the Python MCP server
 2. The MCP server queries the Go bridge for WhatsApp data or directly to the SQLite database
 3. The Go accesses the WhatsApp API and keeps the SQLite database up to date
-4. Data flows back through the chain to Claude
-5. When sending messages, the request flows from Claude through the MCP server to the Go bridge and to WhatsApp
+4. Data flows back through the chain to the MCP server
+5. When sending messages, the request flows from the third party through the MCP server to the Go bridge and to WhatsApp
+
 
 ## Troubleshooting
 
@@ -134,4 +108,3 @@ Claude can access the following tools to interact with WhatsApp:
 - **No Messages Loading**: After initial authentication, it can take several minutes for your message history to load, especially if you have many chats.
 - **WhatsApp Out of Sync**: If your WhatsApp messages get out of sync with the bridge, delete both database files (`whatsapp-bridge/store/messages.db` and `whatsapp-bridge/store/whatsapp.db`) and restart the bridge to re-authenticate.
 
-For additional Claude Desktop integration troubleshooting, see the [MCP documentation](https://modelcontextprotocol.io/quickstart/server#claude-for-desktop-integration-issues). The documentation includes helpful tips for checking logs and resolving common issues.
