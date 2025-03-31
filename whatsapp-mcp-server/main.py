@@ -1,5 +1,8 @@
 from typing import List, Dict, Any, Optional, Tuple
 from mcp.server.fastmcp import FastMCP
+import ngrok
+import argparse
+
 from datetime import datetime
 from whatsapp import (
     search_contacts as whatsapp_search_contacts,
@@ -13,8 +16,10 @@ from whatsapp import (
     send_message as whatsapp_send_message
 )
 
+PORT = 8055
+
 # Initialize FastMCP server
-mcp = FastMCP("whatsapp")
+mcp = FastMCP("whatsapp", port=PORT)
 
 @mcp.tool()
 def search_contacts(query: str) -> List[Dict[str, Any]]:
@@ -28,7 +33,7 @@ def search_contacts(query: str) -> List[Dict[str, Any]]:
 
 @mcp.tool()
 def list_messages(
-    date_range: Optional[Tuple[datetime, datetime]] = None,
+    date_range: Optional[List[datetime]] = None,
     sender_phone_number: Optional[str] = None,
     chat_jid: Optional[str] = None,
     query: Optional[str] = None,
@@ -179,5 +184,45 @@ def send_message(
     }
 
 if __name__ == "__main__":
+    # Set up command line argument parsing
+    parser = argparse.ArgumentParser(description='WhatsApp MCP Server')
+    parser.add_argument('--ngrok-token', type=str, help='Ngrok authentication token')
+    args = parser.parse_args()
+
     # Initialize and run the server
-    mcp.run(transport='stdio')
+    ngrok_token = args.ngrok_token
+    
+    # Try to get token from environment if not provided as argument
+    if not ngrok_token:
+        try:
+            # Test if we can connect using environment variable
+            test_listener = ngrok.forward(PORT, authtoken_from_env=True)
+            test_listener.close()
+            print("✅ Using ngrok token from environment")
+        except Exception:
+            # Prompt for token if not in environment
+            print("\n⚠️  No ngrok authentication token found in environment variables.")
+            import getpass
+            ngrok_token = getpass.getpass("Please enter your ngrok authentication token: ").strip()
+            if not ngrok_token:
+                print("❌ Error: Ngrok authentication token is required")
+                exit(1)
+
+    # Connect using the token (either from args, env, or user input)
+    try:
+        listener = ngrok.forward(
+            PORT,
+            authtoken=ngrok_token if ngrok_token else None,
+            authtoken_from_env=True if not ngrok_token else False
+        )
+        print("\n" + "="*50)
+        print("\n🌍 MCP Server is running!")
+        print("\n📋 Copy this URL to connect:")
+        print(f"\n    \033[1m{listener.url()}/sse\033[0m")
+        print("\n⚠️  Warning: Be careful sharing this URL publicly!")
+        print("\n❌ Press Ctrl+C to stop the server")
+        print("\n" + "="*50 + "\n")
+        mcp.run(transport='sse')
+    except Exception as e:
+        print(f"\n❌ Error connecting to ngrok: {str(e)}")
+        exit(1)
